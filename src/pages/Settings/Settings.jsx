@@ -4,7 +4,6 @@ import "./Settings.css";
 import AdminList from "../../components/UsersList/AdminList";
 import { fetchUsers } from "../../Service/UserService.js";
 
-
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
@@ -54,45 +53,44 @@ const Settings = () => {
     enableSMSReceipts: false,
   });
 
-
   const [users, setUsers] = useState([]);
   // const [loading, setLoading] = useState(false);
-  
-    useEffect(() => {
-      async function loadUsers() {
-        try {
-          setLoading(true);
-          const response = await fetchUsers();
-          const allUsers = Array.isArray(response?.data) ? response.data : [];
-          const onlyRoleUsers = allUsers.filter((u) => (u?.role ?? "") === "ROLE_ADMIN");
-          setUsers(onlyRoleUsers);
-          
-        } catch (error) {
-          console.error(error);
-          toast.error("Unable to fetch Admins");
-        } finally {
-          setLoading(false);
-        }
+
+  useEffect(() => {
+    async function loadUsers() {
+      try {
+        setLoading(true);
+        const response = await fetchUsers();
+        const allUsers = Array.isArray(response?.data) ? response.data : [];
+        const onlyRoleUsers = allUsers.filter(
+          (u) => (u?.role ?? "") === "ROLE_ADMIN"
+        );
+        setUsers(onlyRoleUsers);
+      } catch (error) {
+        console.error(error);
+        toast.error("Unable to fetch Admins");
+      } finally {
+        setLoading(false);
       }
-      loadUsers();
-    }, []);
-  
-    const [selectedUser, setSelectedUser] = useState(null);
-  
-    const onEdit = (user) => {
-      // show user in the left form for editing
-      setSelectedUser(user);
-      // optionally scroll to top or focus
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-  
-    const onUpdateUser = (updated) => {
-      setUsers((prev) =>
-        prev.map((u) => (u.userId === updated.userId ? updated : u))
-      );
-      setSelectedUser(null);
-    };
-  
+    }
+    loadUsers();
+  }, []);
+
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  const onEdit = (user) => {
+    // show user in the left form for editing
+    setSelectedUser(user);
+    // optionally scroll to top or focus
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const onUpdateUser = (updated) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.userId === updated.userId ? updated : u))
+    );
+    setSelectedUser(null);
+  };
 
   // Load saved settings from localStorage
   useEffect(() => {
@@ -123,13 +121,16 @@ const Settings = () => {
   // Handle Admin Profile Update
   const handleAdminProfileUpdate = (e) => {
     e.preventDefault();
-    if (
-      adminProfile.newPassword &&
-      adminProfile.newPassword !== adminProfile.confirmPassword
-    ) {
-      toast.error("Passwords do not match!");
-      return;
-    }
+
+    // Only validate password matching if confirmPassword field is being used
+    // Since confirmPassword field is not in the form, we skip this validation
+    // if (
+    //   adminProfile.newPassword &&
+    //   adminProfile.newPassword !== adminProfile.confirmPassword
+    // ) {
+    //   toast.error("Passwords do not match!");
+    //   return;
+    // }
 
     setLoading(true);
     setTimeout(() => {
@@ -141,6 +142,12 @@ const Settings = () => {
         email: adminProfile.email,
         phone: adminProfile.phone,
       };
+
+      // If password is provided, update it as well
+      if (adminProfile.newPassword) {
+        updatedDetails.password = adminProfile.newPassword;
+      }
+
       localStorage.setItem("userDetails", JSON.stringify(updatedDetails));
 
       setLoading(false);
@@ -316,10 +323,8 @@ const Settings = () => {
                   </div>
                 </div>
 
-                
                 <div className="form-row">
                   <div className="form-group">
-                    
                     <label>
                       <i className="bi bi-lock"></i>
                       Password
@@ -421,7 +426,7 @@ const Settings = () => {
                   </div>
                 </div> */}
 
-                <div className="form-actions">
+                <div className="form-actions mb-4">
                   <button type="submit" className="btn-save" disabled={loading}>
                     {loading ? (
                       <>
@@ -438,8 +443,7 @@ const Settings = () => {
                 </div>
               </form>
 
-              <AdminList users={users} setUsers={setUsers} onEdit={onEdit}  />
-
+              <AdminList users={users} setUsers={setUsers} onEdit={onEdit} />
             </div>
           )}
 
