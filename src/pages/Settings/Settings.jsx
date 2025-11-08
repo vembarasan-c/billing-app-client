@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import "./Settings.css";
 import AdminList from "../../components/UsersList/AdminList";
-import { fetchUsers } from "../../Service/UserService.js";
+import { fetchUsers, updateUser } from "../../Service/UserService.js";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -81,6 +81,15 @@ const Settings = () => {
   const onEdit = (user) => {
     // show user in the left form for editing
     setSelectedUser(user);
+    // Populate the form with selected user's data
+    setAdminProfile({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
     // optionally scroll to top or focus
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -90,6 +99,34 @@ const Settings = () => {
       prev.map((u) => (u.userId === updated.userId ? updated : u))
     );
     setSelectedUser(null);
+    // Reset form to logged-in admin's data
+    const userDetails = JSON.parse(localStorage.getItem("userDetails"));
+    if (userDetails) {
+      setAdminProfile({
+        name: userDetails.name || "",
+        email: userDetails.email || "",
+        phone: userDetails.phone || "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setSelectedUser(null);
+    // Reset form to logged-in admin's data
+    const userDetails = JSON.parse(localStorage.getItem("userDetails"));
+    if (userDetails) {
+      setAdminProfile({
+        name: userDetails.name || "",
+        email: userDetails.email || "",
+        phone: userDetails.phone || "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    }
   };
 
   // Load saved settings from localStorage
@@ -119,46 +156,87 @@ const Settings = () => {
   }, []);
 
   // Handle Admin Profile Update
-  const handleAdminProfileUpdate = (e) => {
+  const handleAdminProfileUpdate = async (e) => {
     e.preventDefault();
 
-    // Only validate password matching if confirmPassword field is being used
-    // Since confirmPassword field is not in the form, we skip this validation
-    // if (
-    //   adminProfile.newPassword &&
-    //   adminProfile.newPassword !== adminProfile.confirmPassword
-    // ) {
-    //   toast.error("Passwords do not match!");
-    //   return;
-    // }
-
     setLoading(true);
-    setTimeout(() => {
-      // Update local storage
-      const userDetails = JSON.parse(localStorage.getItem("userDetails"));
-      const updatedDetails = {
-        ...userDetails,
-        name: adminProfile.name,
-        email: adminProfile.email,
-        phone: adminProfile.phone,
-      };
 
-      // If password is provided, update it as well
-      if (adminProfile.newPassword) {
-        updatedDetails.password = adminProfile.newPassword;
+    try {
+      // Check if we're editing a selected user or the logged-in admin
+      if (selectedUser) {
+        // Update selected user
+        const updatedUserData = {
+          name: adminProfile.name,
+          email: adminProfile.email,
+          role: selectedUser.role || "ROLE_ADMIN", // Preserve the role
+        };
+
+        // If password is provided, update it as well
+        if (adminProfile.newPassword) {
+          updatedUserData.password = adminProfile.newPassword;
+        }
+
+        // Call API to update user
+        await updateUser(selectedUser.userId, updatedUserData);
+
+        // Update the user in the local list
+        const updatedUser = {
+          ...selectedUser,
+          name: adminProfile.name,
+          email: adminProfile.email,
+        };
+        onUpdateUser(updatedUser);
+
+        toast.success("User updated successfully!");
+      } else {
+        // Update logged-in admin's profile
+        const userDetails = JSON.parse(localStorage.getItem("userDetails"));
+        const updatedDetails = {
+          ...userDetails,
+          name: adminProfile.name,
+          email: adminProfile.email,
+          phone: adminProfile.phone,
+          role: userDetails.role || "ROLE_ADMIN", // Preserve the role
+        };
+
+        // If password is provided, update it as well
+        if (adminProfile.newPassword) {
+          updatedDetails.password = adminProfile.newPassword;
+        }
+
+        // If there's a userId, also update via API
+        if (userDetails.userId) {
+          const apiUpdateData = {
+            name: adminProfile.name,
+            email: adminProfile.email,
+            role: userDetails.role || "ROLE_ADMIN",
+          };
+
+          if (adminProfile.newPassword) {
+            apiUpdateData.password = adminProfile.newPassword;
+          }
+
+          await updateUser(userDetails.userId, apiUpdateData);
+        }
+
+        localStorage.setItem("userDetails", JSON.stringify(updatedDetails));
+
+        toast.success("Profile updated successfully!");
       }
 
-      localStorage.setItem("userDetails", JSON.stringify(updatedDetails));
-
-      setLoading(false);
-      toast.success("Profile updated successfully!");
+      // Clear password fields
       setAdminProfile({
         ...adminProfile,
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
-    }, 1000);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Failed to update profile. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle Business Info Update
@@ -274,10 +352,58 @@ const Settings = () => {
               <div className="section-header">
                 <h2>
                   <i className="bi bi-person-fill"></i>
-                  Admin Profile Settings
+                  {selectedUser ? "Edit User" : "Admin Profile Settings"}
                 </h2>
-                <p>Update your personal information and change password</p>
+                <p>
+                  {selectedUser
+                    ? `Editing user: ${selectedUser.name}`
+                    : "Update your personal information and change password"}
+                </p>
               </div>
+
+              {selectedUser && (
+                <div
+                  className="alert alert-info"
+                  style={{
+                    padding: "12px 16px",
+                    marginBottom: "20px",
+                    backgroundColor: "#e7f3ff",
+                    border: "1px solid #b3d9ff",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span style={{ color: "#004085" }}>
+                    <i
+                      className="bi bi-info-circle"
+                      style={{ marginRight: "8px" }}
+                    ></i>
+                    You are currently editing{" "}
+                    <strong>{selectedUser.name}</strong>'s profile
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="btn btn-sm"
+                    style={{
+                      padding: "4px 12px",
+                      backgroundColor: "#fff",
+                      border: "1px solid #004085",
+                      color: "#004085",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <i
+                      className="bi bi-x-circle"
+                      style={{ marginRight: "4px" }}
+                    ></i>
+                    Cancel Edit
+                  </button>
+                </div>
+              )}
 
               <form
                 onSubmit={handleAdminProfileUpdate}
@@ -436,10 +562,34 @@ const Settings = () => {
                     ) : (
                       <>
                         <i className="bi bi-check-circle"></i>
-                        Update Profile
+                        {selectedUser ? "Update User" : "Update Profile"}
                       </>
                     )}
                   </button>
+                  {selectedUser && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="btn-cancel"
+                      style={{
+                        marginLeft: "10px",
+                        padding: "12px 24px",
+                        backgroundColor: "#6c757d",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      <i
+                        className="bi bi-x-circle"
+                        style={{ marginRight: "6px" }}
+                      ></i>
+                      Cancel
+                    </button>
+                  )}
                 </div>
               </form>
 
