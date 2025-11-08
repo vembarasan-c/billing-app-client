@@ -14,6 +14,8 @@ import { useContext } from "react";
 import { AppContext } from "./context/AppContext.jsx";
 import NotFound from "./pages/NotFound/NotFound.jsx";
 
+
+
 const App = () => {
   const location = useLocation();
   const { auth } = useContext(AppContext);

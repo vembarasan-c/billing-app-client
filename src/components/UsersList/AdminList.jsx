@@ -4,7 +4,7 @@ import { deleteUser } from "../../Service/UserService.js";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-const AdminList = ({ users, setUsers, onEdit }) => {
+const AdminList = ({ users, onDelete, onEdit }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -25,11 +25,11 @@ const AdminList = ({ users, setUsers, onEdit }) => {
   const deleteByUserId = async (id) => {
     try {
       await deleteUser(id);
-      setUsers((prevUsers) => prevUsers.filter((user) => user.userId !== id));
+      onDelete && onDelete(id);
       toast.success("User deleted");
     } catch (e) {
       console.error(e);
-      toast.error("Unable to deleting user");
+      toast.error("Unable to delete user");
     }
   };
 

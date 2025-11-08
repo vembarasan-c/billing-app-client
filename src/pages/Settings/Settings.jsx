@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import "./Settings.css";
 import AdminList from "../../components/UsersList/AdminList";
-import { fetchUsers, updateUser } from "../../Service/UserService.js";
+import { fetchUsers, updateUser, addUser } from "../../Service/UserService.js";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -11,11 +11,9 @@ const Settings = () => {
   // Admin Profile State
   const [adminProfile, setAdminProfile] = useState({
     name: "",
-    email: "",
-    phone: "",
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+    email: "",    
+    role: "",
+    password: "",
   });
 
   // Business Info State
@@ -54,6 +52,7 @@ const Settings = () => {
   });
 
   const [users, setUsers] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
   // const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -81,15 +80,17 @@ const Settings = () => {
   const onEdit = (user) => {
     // show user in the left form for editing
     setSelectedUser(user);
+    
     // Populate the form with selected user's data
+    console.log("Selected user for edit:", user);
+
     setAdminProfile({
       name: user.name || "",
       email: user.email || "",
-      phone: user.phone || "",
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
+      role: user.role || "",
+      password: "",
     });
+
     // optionally scroll to top or focus
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -100,40 +101,35 @@ const Settings = () => {
     );
     setSelectedUser(null);
     // Reset form to logged-in admin's data
-    const userDetails = JSON.parse(localStorage.getItem("userDetails"));
-    if (userDetails) {
+    
       setAdminProfile({
-        name: userDetails.name || "",
-        email: userDetails.email || "",
-        phone: userDetails.phone || "",
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+        name:  "",
+        email: "",
+        role: "",
+        password: "",
       });
-    }
   };
 
   const handleCancelEdit = () => {
+
     setSelectedUser(null);
-    // Reset form to logged-in admin's data
-    const userDetails = JSON.parse(localStorage.getItem("userDetails"));
-    if (userDetails) {
-      setAdminProfile({
-        name: userDetails.name || "",
-        email: userDetails.email || "",
-        phone: userDetails.phone || "",
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+
+    setAdminProfile({
+        name:  "",
+        email: "",
+        phone:  "",
+        password: "",
       });
-    }
+      
   };
+
 
   // Load saved settings from localStorage
   useEffect(() => {
     const savedBusinessInfo = localStorage.getItem("businessInfo");
     const savedPaymentConfig = localStorage.getItem("paymentConfig");
     const savedSystemPrefs = localStorage.getItem("systemPrefs");
+
     const userDetails = JSON.parse(localStorage.getItem("userDetails"));
 
     if (savedBusinessInfo) {
@@ -145,14 +141,7 @@ const Settings = () => {
     if (savedSystemPrefs) {
       setSystemPrefs(JSON.parse(savedSystemPrefs));
     }
-    if (userDetails) {
-      setAdminProfile({
-        ...adminProfile,
-        name: userDetails.name || "",
-        email: userDetails.email || "",
-        phone: userDetails.phone || "",
-      });
-    }
+
   }, []);
 
   // Handle Admin Profile Update
@@ -168,15 +157,12 @@ const Settings = () => {
         const updatedUserData = {
           name: adminProfile.name,
           email: adminProfile.email,
-          role: selectedUser.role || "ROLE_ADMIN", // Preserve the role
+          password: adminProfile.password,
+          role: selectedUser.role || "ROLE_ADMIN",
         };
 
-        // If password is provided, update it as well
-        if (adminProfile.newPassword) {
-          updatedUserData.password = adminProfile.newPassword;
-        }
-
-        // Call API to update user
+        console.log(selectedUser)
+    
         await updateUser(selectedUser.userId, updatedUserData);
 
         // Update the user in the local list
@@ -187,50 +173,32 @@ const Settings = () => {
         };
         onUpdateUser(updatedUser);
 
-        toast.success("User updated successfully!");
+        toast.success("Admin updated successfully!");
       } else {
         // Update logged-in admin's profile
-        const userDetails = JSON.parse(localStorage.getItem("userDetails"));
-        const updatedDetails = {
-          ...userDetails,
+        
+        const newAdminData = {
           name: adminProfile.name,
           email: adminProfile.email,
-          phone: adminProfile.phone,
-          role: userDetails.role || "ROLE_ADMIN", // Preserve the role
+          password: adminProfile.password,
+          role:"ROLE_ADMIN", // Preserve the role
         };
+        console.log(newAdminData);
 
-        // If password is provided, update it as well
-        if (adminProfile.newPassword) {
-          updatedDetails.password = adminProfile.newPassword;
-        }
+        await addUser(newAdminData);
 
-        // If there's a userId, also update via API
-        if (userDetails.userId) {
-          const apiUpdateData = {
-            name: adminProfile.name,
-            email: adminProfile.email,
-            role: userDetails.role || "ROLE_ADMIN",
-          };
+        onUpdateUser(newAdminData);
 
-          if (adminProfile.newPassword) {
-            apiUpdateData.password = adminProfile.newPassword;
-          }
-
-          await updateUser(userDetails.userId, apiUpdateData);
-        }
-
-        localStorage.setItem("userDetails", JSON.stringify(updatedDetails));
-
-        toast.success("Profile updated successfully!");
+        toast.success("Admin Profile added successfully!");
       }
 
       // Clear password fields
       setAdminProfile({
-        ...adminProfile,
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+        name:"",
+        email:"",
+        password: "",
       });
+
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error("Failed to update profile. Please try again.");
@@ -450,22 +418,42 @@ const Settings = () => {
                 </div>
 
                 <div className="form-row">
-                  <div className="form-group">
+                  <div className="form-group" style={{ position: 'relative' }}>
                     <label>
                       <i className="bi bi-lock"></i>
                       Password
                     </label>
                     <input
-                      type="password"
-                      value={adminProfile.newPassword}
+                      type={showPassword ? "text" : "password"}
+                      value={adminProfile.password}
                       onChange={(e) =>
                         setAdminProfile({
                           ...adminProfile,
-                          newPassword: e.target.value,
+                          password: e.target.value,
                         })
                       }
                       placeholder="******"
+                      style={{ paddingRight: '40px' }}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '48px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        fontSize: '25px',
+                        color: '#555',
+                      }}
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <i className={showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'}></i>
+                    </button>
                   </div>
                 </div>
 
@@ -562,7 +550,7 @@ const Settings = () => {
                     ) : (
                       <>
                         <i className="bi bi-check-circle"></i>
-                        {selectedUser ? "Update User" : "Update Profile"}
+                        {selectedUser ? "Update Admin" : "Create Admin Profile"}
                       </>
                     )}
                   </button>
